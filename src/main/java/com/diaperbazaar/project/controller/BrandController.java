@@ -1,0 +1,40 @@
+package com.diaperbazaar.project.controller;
+
+import com.diaperbazaar.project.dto.BrandDTO;
+import com.diaperbazaar.project.service.BrandService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/brands")
+@CrossOrigin(origins = "*")
+public class BrandController {
+
+    @Autowired
+    private BrandService brandService;
+
+    /**
+     * Get all brands, optionally filtered by category
+     * GET /api/brands?category={slug}
+     */
+    @GetMapping
+    public ResponseEntity<List<BrandDTO>> getAllBrands(
+            @RequestParam(required = false) String category
+    ) {
+        List<BrandDTO> brands = brandService.getAllBrands(category);
+        return ResponseEntity.ok(brands);
+    }
+
+    /**
+     * Get brand by ID
+     * GET /api/brands/{id}
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<BrandDTO> getBrandById(@PathVariable Long id) {
+        BrandDTO brand = brandService.getBrandById(id);
+        return ResponseEntity.ok(brand);
+    }
+}
