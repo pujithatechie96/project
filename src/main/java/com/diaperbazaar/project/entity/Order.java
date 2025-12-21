@@ -43,9 +43,21 @@ public class Order {
     @Column(name = "payment_status", length = 20)
     private PaymentStatus paymentStatus = PaymentStatus.PENDING;
 
+    @Column(name = "address_id")
+    private Long addressId;
+
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "shipping_address", nullable = false, columnDefinition = "json")
+    @Column(name = "shipping_address", columnDefinition = "json")
     private ShippingAddress shippingAddress;
+
+    @Column(name = "points_used")
+    private Integer pointsUsed = 0;
+
+    @Column(name = "points_discount", precision = 10, scale = 2)
+    private BigDecimal pointsDiscount = BigDecimal.ZERO;
+
+    @Column(name = "points_earned")
+    private Integer pointsEarned = 0;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> orderItems = new ArrayList<>();
@@ -71,7 +83,6 @@ public class Order {
     public enum PaymentStatus {
         PENDING, PAID, FAILED
     }
-
 
     public Long getId() {
         return id;
@@ -121,12 +132,44 @@ public class Order {
         this.paymentStatus = paymentStatus;
     }
 
+    public Long getAddressId() {
+        return addressId;
+    }
+
+    public void setAddressId(Long addressId) {
+        this.addressId = addressId;
+    }
+
     public ShippingAddress getShippingAddress() {
         return shippingAddress;
     }
 
     public void setShippingAddress(ShippingAddress shippingAddress) {
         this.shippingAddress = shippingAddress;
+    }
+
+    public Integer getPointsUsed() {
+        return pointsUsed;
+    }
+
+    public void setPointsUsed(Integer pointsUsed) {
+        this.pointsUsed = pointsUsed;
+    }
+
+    public BigDecimal getPointsDiscount() {
+        return pointsDiscount;
+    }
+
+    public void setPointsDiscount(BigDecimal pointsDiscount) {
+        this.pointsDiscount = pointsDiscount;
+    }
+
+    public Integer getPointsEarned() {
+        return pointsEarned;
+    }
+
+    public void setPointsEarned(Integer pointsEarned) {
+        this.pointsEarned = pointsEarned;
     }
 
     public List<OrderItem> getOrderItems() {

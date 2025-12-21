@@ -1,9 +1,11 @@
 package com.diaperbazaar.project.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
 import java.util.List;
 
 @Data
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class ProductDTO {
     private Long id;
     private String name;
@@ -19,6 +21,8 @@ public class ProductDTO {
 
     private List<CategoryDTO> categories;  // Category objects with id + name
     private List<ProductSizeDTO> sizes;
+    private String productType;
+
 
     public Long getId() {
         return id;

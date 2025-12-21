@@ -10,6 +10,14 @@ public class AuthResponse {
     private String email;
     private String role;
 
+    public AuthResponse(String token, Long id, String name, String email, String name1) {
+        this.token = token;
+        this.id =id;
+        this.name = name;
+        this.email = email;
+        this.role = name1;
+    }
+
     public String getToken() {
         return token;
     }

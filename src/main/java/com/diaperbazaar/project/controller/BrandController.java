@@ -1,10 +1,14 @@
 package com.diaperbazaar.project.controller;
 
 import com.diaperbazaar.project.dto.BrandDTO;
+import com.diaperbazaar.project.entity.Brand;
+import com.diaperbazaar.project.payload.ApiResponse;
 import com.diaperbazaar.project.service.BrandService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -37,4 +41,31 @@ public class BrandController {
         BrandDTO brand = brandService.getBrandById(id);
         return ResponseEntity.ok(brand);
     }
+
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Brand>> create(@RequestBody Brand b) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "brand created", brandService.create(b)));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Brand>> update(@PathVariable Long id, @RequestBody Brand b) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "brand updated", brandService.update(id, b)));
+        }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
+        brandService.delete(id);
+        return ResponseEntity.ok(new ApiResponse<>(true, "brand deleted", null));
+    }
+
+    @PostMapping("/bulk-upload")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<List<Brand>>> bulkUpload(@RequestParam("file") MultipartFile file) throws Exception {
+        List<Brand> saved = brandService.bulkUpload(file);
+        return ResponseEntity.ok(new ApiResponse<>(true, "brands uploaded", saved));
+    }
+
 }

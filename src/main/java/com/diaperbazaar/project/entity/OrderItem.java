@@ -42,6 +42,11 @@ public class OrderItem {
     @Column(length = 50)
     private String size;
 
+    // ✅ NEW (does NOT break existing data)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "variant_id")
+    private ProductVariant variant;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

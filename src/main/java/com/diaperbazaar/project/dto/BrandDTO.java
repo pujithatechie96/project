@@ -1,5 +1,8 @@
 package com.diaperbazaar.project.dto;
 
+import lombok.Builder;
+
+@Builder
 public class BrandDTO {
     private Long id;
     private String name;

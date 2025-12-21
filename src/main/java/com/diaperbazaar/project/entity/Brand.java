@@ -1,11 +1,13 @@
 package com.diaperbazaar.project.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "brands")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Brand {
 
     @Id
@@ -23,15 +25,14 @@ public class Brand {
 
     private String logo;
 
-
-
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @PrePersist
-    protected void onCreate() {
+    public void prePersist() {
         createdAt = LocalDateTime.now();
     }
+
 
     // Getters and Setters
     public Long getId() { return id; }

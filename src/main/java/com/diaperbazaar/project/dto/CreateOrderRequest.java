@@ -19,11 +19,15 @@ public class CreateOrderRequest {
     @NotEmpty(message = "Order items cannot be empty")
     private List<OrderItemRequest> items;
 
-    @NotNull(message = "Shipping address is required")
-    private ShippingAddress shippingAddress;
+    @NotNull(message = "Address ID is required")
+    private Long addressId;
 
     @NotNull(message = "Payment method is required")
     private String paymentMethod;
+
+    private Integer pointsUsed;
+
+    private BigDecimal pointsDiscount;
 
     @Data
     @NoArgsConstructor
@@ -31,6 +35,8 @@ public class CreateOrderRequest {
     public static class OrderItemRequest {
         @NotNull(message = "Product ID is required")
         private Long productId;
+
+        private Long variantId;
 
         @NotNull(message = "Product name is required")
         private String productName;
@@ -44,54 +50,6 @@ public class CreateOrderRequest {
         private BigDecimal price;
 
         private String size;
-
-        public Long getProductId() {
-            return productId;
-        }
-
-        public void setProductId(Long productId) {
-            this.productId = productId;
-        }
-
-        public String getProductName() {
-            return productName;
-        }
-
-        public void setProductName(String productName) {
-            this.productName = productName;
-        }
-
-        public String getProductImage() {
-            return productImage;
-        }
-
-        public void setProductImage(String productImage) {
-            this.productImage = productImage;
-        }
-
-        public Integer getQuantity() {
-            return quantity;
-        }
-
-        public void setQuantity(Integer quantity) {
-            this.quantity = quantity;
-        }
-
-        public BigDecimal getPrice() {
-            return price;
-        }
-
-        public void setPrice(BigDecimal price) {
-            this.price = price;
-        }
-
-        public String getSize() {
-            return size;
-        }
-
-        public void setSize(String size) {
-            this.size = size;
-        }
     }
 
     public List<OrderItemRequest> getItems() {
@@ -102,12 +60,12 @@ public class CreateOrderRequest {
         this.items = items;
     }
 
-    public ShippingAddress getShippingAddress() {
-        return shippingAddress;
+    public Long getAddressId() {
+        return addressId;
     }
 
-    public void setShippingAddress(ShippingAddress shippingAddress) {
-        this.shippingAddress = shippingAddress;
+    public void setAddressId(Long addressId) {
+        this.addressId = addressId;
     }
 
     public String getPaymentMethod() {
@@ -116,5 +74,21 @@ public class CreateOrderRequest {
 
     public void setPaymentMethod(String paymentMethod) {
         this.paymentMethod = paymentMethod;
+    }
+
+    public Integer getPointsUsed() {
+        return pointsUsed;
+    }
+
+    public void setPointsUsed(Integer pointsUsed) {
+        this.pointsUsed = pointsUsed;
+    }
+
+    public BigDecimal getPointsDiscount() {
+        return pointsDiscount;
+    }
+
+    public void setPointsDiscount(BigDecimal pointsDiscount) {
+        this.pointsDiscount = pointsDiscount;
     }
 }

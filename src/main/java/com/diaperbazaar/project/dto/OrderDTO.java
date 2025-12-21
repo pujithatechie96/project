@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -21,10 +22,16 @@ public class OrderDTO {
     private Order.OrderStatus status;
     private String paymentMethod;
     private Order.PaymentStatus paymentStatus;
+    private Long addressId;
     private ShippingAddress shippingAddress;
+    private Integer pointsUsed;
+    private BigDecimal pointsDiscount;
+    private Integer pointsEarned;
     private List<OrderItemDTO> orderItems;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+
 
     public Long getId() {
         return id;
@@ -104,6 +111,38 @@ public class OrderDTO {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Long getAddressId() {
+        return addressId;
+    }
+
+    public void setAddressId(Long addressId) {
+        this.addressId = addressId;
+    }
+
+    public Integer getPointsUsed() {
+        return pointsUsed;
+    }
+
+    public void setPointsUsed(Integer pointsUsed) {
+        this.pointsUsed = pointsUsed;
+    }
+
+    public BigDecimal getPointsDiscount() {
+        return pointsDiscount;
+    }
+
+    public void setPointsDiscount(BigDecimal pointsDiscount) {
+        this.pointsDiscount = pointsDiscount;
+    }
+
+    public Integer getPointsEarned() {
+        return pointsEarned;
+    }
+
+    public void setPointsEarned(Integer pointsEarned) {
+        this.pointsEarned = pointsEarned;
     }
 }
 
