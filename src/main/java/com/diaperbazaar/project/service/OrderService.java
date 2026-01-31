@@ -1,46 +1,41 @@
 package com.diaperbazaar.project.service;
 
-import com.diaperbazaar.project.dto.CreateOrderRequest;
-import com.diaperbazaar.project.dto.OrderDTO;
-import com.diaperbazaar.project.dto.OrderItemDTO;
+import com.diaperbazaar.project.dto.*;
 import com.diaperbazaar.project.entity.*;
 import com.diaperbazaar.project.repository.*;
 import com.diaperbazaar.project.service.WalletService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class OrderService {
+
 
     private final OrderRepository orderRepository;
     private final AddressRepository addressRepository;
     private final ProductVariantRepository productVariantRepository;
     private final WalletService walletService;
+    private final OfferService offerService;
+
+    private final StockTransactionRepository stockTransactionRepository;
+    private final StockService stockService;
+
+
 
     @Transactional
     public OrderDTO createOrder(Long userId, CreateOrderRequest request) {
-        // Calculate total amount
-        BigDecimal subtotal = request.getItems().stream()
-                .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        // Apply points discount if provided (1 point = ₹1)
-        BigDecimal pointsDiscount = request.getPointsDiscount() != null ? request.getPointsDiscount() : BigDecimal.ZERO;
-        BigDecimal amountAfterDiscount = subtotal.subtract(pointsDiscount);
-
-        // Add tax (2%)
-        BigDecimal tax = amountAfterDiscount.multiply(new BigDecimal("0.02"));
-        BigDecimal finalAmount = amountAfterDiscount.add(tax);
-
-        // Calculate points earned: 10% of subtotal (before tax and discount)
-        // 1 point = ₹1, so 10% of subtotal = points earned
-        int pointsEarned = finalAmount.multiply(new BigDecimal("0.10")).intValue();
+        BigDecimal orderSubtotal = BigDecimal.ZERO;
+        BigDecimal orderTotalGst = BigDecimal.ZERO;
+        BigDecimal orderTotalDiscount = BigDecimal.ZERO;
 
         // Fetch address and convert to ShippingAddress JSON
         Address address = addressRepository.findById(request.getAddressId())
@@ -64,40 +59,140 @@ public class OrderService {
         // Create order
         Order order = new Order();
         order.setUserId(userId);
-        order.setTotalAmount(finalAmount);
         order.setStatus(Order.OrderStatus.PENDING);
         order.setPaymentMethod(request.getPaymentMethod());
         order.setPaymentStatus(Order.PaymentStatus.PENDING);
         order.setAddressId(request.getAddressId());
         order.setShippingAddress(shippingAddress);
         order.setPointsUsed(request.getPointsUsed() != null ? request.getPointsUsed() : 0);
-        order.setPointsDiscount(pointsDiscount);
-        order.setPointsEarned(pointsEarned);
 
-        // Create order items
-        request.getItems().forEach(itemRequest -> {
+        // Process each order item with offer engine
+        for (var itemRequest : request.getItems()) {
+            ProductVariant variant = productVariantRepository.findById(itemRequest.getVariantId())
+                    .orElseThrow(() -> new RuntimeException("Variant not found: " + itemRequest.getVariantId()));
+
+            // 🔥 OFFER ENGINE INTEGRATION
+            // Apply best offer for this variant
+            BigDecimal unitPrice = itemRequest.getPrice();
+            int orderedQty = itemRequest.getQuantity();
+
+            OfferResult offerResult = offerService.applyBestOffer(
+                    itemRequest.getVariantId(),
+                    orderedQty,
+                    unitPrice
+            );
+
+            log.info("Offer applied for variant {}: billableQty={}, deliveredQty={}, subtotal={}, discount={}, offer={}",
+                    itemRequest.getVariantId(),
+                    offerResult.getBillableQty(),
+                    offerResult.getDeliveredQty(),
+                    offerResult.getSubtotal(),
+                    offerResult.getDiscountAmount(),
+                    offerResult.getAppliedOfferName());
+
+            // 🔥 GST CALCULATION - Applied AFTER discount
+            // GST is calculated on the discounted subtotal, not original price
+            BigDecimal gstPercentage = variant.getGstPercentage() != null
+                    ? variant.getGstPercentage()
+                    : BigDecimal.ZERO;
+
+            BigDecimal gstAmount = offerResult.getSubtotal()
+                    .multiply(gstPercentage)
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+
+            BigDecimal itemTotal = offerResult.getSubtotal().add(gstAmount);
+
+            // Create order item
             OrderItem item = new OrderItem();
             item.setProductId(itemRequest.getProductId());
             item.setProductName(itemRequest.getProductName());
             item.setProductImage(itemRequest.getProductImage());
-            item.setQuantity(itemRequest.getQuantity());
-            item.setPrice(itemRequest.getPrice());
+            item.setQuantity(offerResult.getDeliveredQty()); // Delivered qty includes free items
+            item.setPrice(unitPrice);
             item.setSize(itemRequest.getSize());
-            ProductVariant variant = productVariantRepository.findById(itemRequest.getVariantId())
-                    .orElseThrow(() -> new RuntimeException("Variant not found"));
-
-            // 🔥 reduce stock
-            variant.decreaseStock(itemRequest.getQuantity());
-
             item.setVariant(variant);
+            // 🔥 Store offer and GST details in order item
+            item.setGstPercentage(gstPercentage);
+            item.setGstAmount(gstAmount);
+            item.setSubTotal(offerResult.getSubtotal());
+            item.setTotalAmount(itemTotal);
+            item.setDiscountAmount(offerResult.getDiscountAmount());
+            item.setAppliedOfferName(offerResult.getAppliedOfferName());
+            item.setAppliedOfferId(offerResult.getAppliedOfferId());
+            item.setBillableQty(offerResult.getBillableQty());
+            item.setDeliveredQty(offerResult.getDeliveredQty());
+
             order.addOrderItem(item);
-        });
+
+            // Accumulate order totals
+            orderSubtotal = orderSubtotal.add(offerResult.getSubtotal());
+            orderTotalGst = orderTotalGst.add(gstAmount);
+            orderTotalDiscount = orderTotalDiscount.add(offerResult.getDiscountAmount());
+
+            // Get partyId from last purchase transaction for this product/variant
+            List<Long> partyIds = stockTransactionRepository.findLastPurchasePartyIds(
+                    itemRequest.getProductId(), itemRequest.getVariantId());
+            Long partyId = partyIds.isEmpty() ? null : partyIds.get(0);
+
+            // 🔥 CRITICAL: Reduce inventory by DELIVERED quantity (includes free items)
+            stockService.addSale(
+                    itemRequest.getProductId(),
+                    itemRequest.getVariantId(),
+                    partyId,
+                    offerResult.getDeliveredQty(), // Use delivered qty for stock reduction
+                    unitPrice,
+                    "Online Order - " + itemRequest.getProductName() +
+                            (offerResult.isOfferApplied() ? " [" + offerResult.getAppliedOfferName() + "]" : "")
+            );
+
+            // 🔥 Handle FREE_ITEM offer type - add free items to inventory reduction
+            if (offerResult.getFreeItems() != null && !offerResult.getFreeItems().isEmpty()) {
+                for (OfferResult.FreeItem freeItem : offerResult.getFreeItems()) {
+                    List<Long> freeItemPartyIds = stockTransactionRepository.findLastPurchasePartyIds(
+                            itemRequest.getProductId(), freeItem.getProductVariantId());
+                    Long freeItemPartyId = freeItemPartyIds.isEmpty() ? null : freeItemPartyIds.get(0);
+
+                    stockService.addSale(
+                            itemRequest.getProductId(),
+                            freeItem.getProductVariantId(),
+                            freeItemPartyId,
+                            freeItem.getQuantity(),
+                            BigDecimal.ZERO, // Free items have zero price
+                            "Free Item - " + freeItem.getVariantTitle() + " [" + offerResult.getAppliedOfferName() + "]"
+                    );
+                }
+            }
+        }
+
+        // Apply points discount if provided (1 point = ₹1)
+        BigDecimal pointsDiscount = request.getPointsDiscount() != null
+                ? request.getPointsDiscount()
+                : BigDecimal.ZERO;
+
+        // Calculate final order total
+        BigDecimal orderTotalBeforePoints = orderSubtotal.add(orderTotalGst);
+        BigDecimal finalAmount = orderTotalBeforePoints.subtract(pointsDiscount);
+
+        // Ensure final amount is not negative
+        if (finalAmount.compareTo(BigDecimal.ZERO) < 0) {
+            finalAmount = BigDecimal.ZERO;
+        }
+
+        // Calculate points earned: 10% of final amount
+        int pointsEarned = finalAmount.multiply(new BigDecimal("0.10")).intValue();
+
+        // Set order totals
+        order.setTotalAmount(finalAmount);
+        order.setSubTotal(orderSubtotal);
+        order.setTotalGst(orderTotalGst);
+        order.setTotalDiscount(orderTotalDiscount);
+        order.setPointsDiscount(pointsDiscount);
+        order.setPointsEarned(pointsEarned);
 
         // Save order
         Order savedOrder = orderRepository.save(order);
 
         // 🔥 After saving order, credit points to wallet
-        // Points earned = 10% of subtotal
         walletService.creditPoints(
                 userId,
                 pointsEarned,
@@ -115,8 +210,12 @@ public class OrderService {
             );
         }
 
+        log.info("Order #{} created successfully. Subtotal: {}, GST: {}, Discount: {}, Final: {}",
+                savedOrder.getId(), orderSubtotal, orderTotalGst, orderTotalDiscount, finalAmount);
+
         return convertToDTO(savedOrder);
     }
+
 
     @Transactional(readOnly = true)
     public List<OrderDTO> getUserOrders(Long userId) {
@@ -165,16 +264,74 @@ public class OrderService {
                     OrderItemDTO itemDTO = new OrderItemDTO();
                     itemDTO.setId(item.getId());
                     itemDTO.setProductId(item.getProductId());
+                    itemDTO.setVariant(item.getVariant());
                     itemDTO.setProductName(item.getProductName());
                     itemDTO.setProductImage(item.getProductImage());
                     itemDTO.setQuantity(item.getQuantity());
                     itemDTO.setPrice(item.getPrice());
                     itemDTO.setSize(item.getSize());
+                    itemDTO.setGstPercentage(item.getGstPercentage());
+                    itemDTO.setGstAmount(item.getGstAmount());
+                    itemDTO.setTotalAmount(item.getTotalAmount());
+                    itemDTO.setSubTotal(item.getSubTotal());
+                    itemDTO.setDiscountAmount(item.getDiscountAmount());
+                    itemDTO.setAppliedOfferId(item.getAppliedOfferId());
+                    itemDTO.setAppliedOfferName(item.getAppliedOfferName());
+                    itemDTO.setBillableQty(item.getBillableQty());
+                    itemDTO.setDeliveredQty(item.getDeliveredQty());
                     return itemDTO;
                 })
                 .collect(Collectors.toList());
 
         dto.setOrderItems(items);
         return dto;
+    }
+
+
+    @Transactional(readOnly = true)
+    public List<OrderDTO> getAllOrders() {
+        return orderRepository.findAllByOrderByCreatedAtDesc()
+                .stream()
+                .map(OrderDTO::fromEntity)
+                .toList();
+    }
+
+
+    @Transactional(readOnly = true)
+    public OrderDTO getOrderByIdAdmin(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+        return OrderDTO.fromEntity(order);
+    }
+
+    @Transactional
+    public OrderDTO updateOrderAdmin(Long orderId, UpdateOrderRequest request) {
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        if (request.getStatus() != null) {
+            order.setStatus(request.getStatus());
+        }
+
+        if (request.getAddressId() != null) {
+            Address address = addressRepository.findById(request.getAddressId()).get();
+            order.setAddressId(request.getAddressId());
+            ShippingAddress shippingAddress = new ShippingAddress();
+            shippingAddress.setFullName(address.getFullName());
+            shippingAddress.setPhone(address.getPhone());
+            shippingAddress.setAddressLine1(address.getAddressLine1());
+            shippingAddress.setAddressLine2(address.getAddressLine2());
+            shippingAddress.setCity(address.getCity());
+            shippingAddress.setState(address.getState());
+            shippingAddress.setZipCode(address.getPincode());
+            order.setShippingAddress(shippingAddress);
+        }
+
+        if (request.getPaymentMethod() != null) {
+            order.setPaymentMethod(request.getPaymentMethod());
+        }
+
+        return OrderDTO.fromEntity(orderRepository.save(order));
     }
 }

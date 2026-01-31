@@ -7,6 +7,7 @@ public class BrandDTO {
     private Long id;
     private String name;
     private String logo;
+    private String slug;
     private String description;
 
     // Getters and setters
@@ -21,5 +22,13 @@ public class BrandDTO {
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+
+    public String getSlug() {
+        return slug;
+    }
+
+    public void setSlug(String slug) {
+        this.slug = slug;
+    }
 }
 

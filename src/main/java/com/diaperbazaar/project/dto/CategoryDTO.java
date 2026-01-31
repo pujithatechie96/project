@@ -8,6 +8,7 @@ import lombok.Data;
 public class CategoryDTO {
     private Long id;
     private String name;
+    private String slug;
 
     public Long getId() {
         return id;

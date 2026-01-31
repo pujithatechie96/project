@@ -14,26 +14,27 @@ import java.util.List;
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
-    /* ================= SEARCH PRODUCTS ================= */
-
     @Query("""
-        SELECT DISTINCT p FROM Product p
-        JOIN p.variants pv
-        LEFT JOIN p.category c
-        LEFT JOIN p.brand b
-        WHERE (:keyword IS NULL OR
-              LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
-              LOWER(pv.description) LIKE LOWER(CONCAT('%', :keyword, '%')))
-        AND (:category IS NULL OR LOWER(c.slug) = LOWER(:category))
-        AND (:brandId IS NULL OR b.id = :brandId)
-        AND (:minPrice IS NULL OR pv.sellPrice >= :minPrice)
-        AND (:maxPrice IS NULL OR pv.sellPrice <= :maxPrice)
-        AND pv.stock > 0
-        """)
+SELECT DISTINCT p
+FROM Product p
+JOIN p.variants pv
+LEFT JOIN p.category c
+LEFT JOIN p.brand b
+WHERE (:keyword IS NULL OR
+       LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
+       LOWER(pv.description) LIKE LOWER(CONCAT('%', :keyword, '%')))
+AND (:categories IS NULL OR c.slug IN :categories)
+AND (:brandIds IS NULL OR b.id IN :brandIds)
+AND (:productSize IS NULL OR pv.size = :productSize)
+AND (:minPrice IS NULL OR pv.sellPrice >= :minPrice)
+AND (:maxPrice IS NULL OR pv.sellPrice <= :maxPrice)
+AND pv.stock > 0
+""")
     Page<Product> searchProducts(
             @Param("keyword") String keyword,
-            @Param("category") String category,
-            @Param("brandId") Long brandId,
+            @Param("categories") List<String> categories,
+            @Param("brandIds") List<Long> brandIds,
+            @Param("productSize") String productSize,
             @Param("minPrice") Double minPrice,
             @Param("maxPrice") Double maxPrice,
             Pageable pageable
@@ -121,10 +122,36 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
         SELECT DISTINCT pv.size
         FROM ProductVariant pv
         JOIN pv.product p
-        WHERE p.category.slug = :categorySlug
+        WHERE p.category.slug IN :categorySlug
         ORDER BY pv.size
         """)
     List<String> findDistinctSizesByCategorySlug(
-            @Param("categorySlug") String categorySlug
+            @Param("categorySlug") List<String> categorySlug
     );
+
+        @Query("""
+    SELECT DISTINCT pv.size
+    FROM ProductVariant pv
+    JOIN pv.product p
+    JOIN p.brand b
+    WHERE b.slug = :brandName
+    ORDER BY pv.size
+    """)
+    List<String> findSizesByBrandName(@Param("brandName") String brandName);
+
+    @Query("""
+SELECT DISTINCT pv.size
+FROM ProductVariant pv
+JOIN pv.product p
+JOIN p.brand b
+JOIN p.category c
+WHERE b.slug IN :brandSlugs
+AND c.slug IN :categorySlugs
+ORDER BY pv.size
+""")
+    List<String> findSizesByBrandsAndCategories(
+            @Param("brandSlugs") List<String> brandSlugs,
+            @Param("categorySlugs") List<String> categorySlugs
+    );
+
 }

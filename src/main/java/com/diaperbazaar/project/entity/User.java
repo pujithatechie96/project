@@ -4,6 +4,7 @@ package com.diaperbazaar.project.entity;
 import jakarta.persistence.Entity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
@@ -17,6 +18,7 @@ import java.util.Set;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class User {
 
     @Id
@@ -31,6 +33,12 @@ public class User {
 
     @Column(nullable = false)
     private String password;
+
+    private String phone;
+    private String address;
+    private String city;
+    private String state;
+    private String zipCode;
 
     @Enumerated(EnumType.STRING)
     @Column(length = 10)

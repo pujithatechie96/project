@@ -36,16 +36,17 @@ public class ProductController {
     @GetMapping("/search")
     public ResponseEntity<Page<ProductResponseDTO>> searchProducts(
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) String category,
-            @RequestParam(required = false) Long brandId,
+            @RequestParam(required = false) List<String> category,
+            @RequestParam(required = false) List<Long> brandId,
             @RequestParam(required = false) Double minPrice,
             @RequestParam(required = false) Double maxPrice,
+            @RequestParam(required = false) String productSize,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "12") int size
     ) {
         Pageable pageable = PageRequest.of(page, size);
         Page<com.diaperbazaar.project.dto.ProductResponseDTO> products = productService.searchProducts(
-                keyword, category, brandId, minPrice, maxPrice, pageable
+                keyword, category, brandId, minPrice, maxPrice, productSize, pageable
         );
         return ResponseEntity.ok(products);
     }
@@ -143,9 +144,10 @@ public class ProductController {
      */
     @GetMapping("/sizes")
     public ResponseEntity<List<String>> getAvailableSizes(
-            @RequestParam(required = false) String category
+            @RequestParam(required = false) List<String> brand,
+            @RequestParam(required = false) List<String> category
     ) {
-        List<String> sizes = productService.getAvailableSizes(category);
+        List<String> sizes = productService.getAvailableSizes(category,brand);
         return ResponseEntity.ok(sizes);
     }
 
@@ -180,6 +182,11 @@ public class ProductController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body("Error: " + e.getMessage());
         }
+    }
+
+    @GetMapping("/barcode/{barcode}")
+    public ResponseEntity<ProductResponseDTO> getProductByBarcode(@PathVariable String barcode) {
+        return ResponseEntity.ok(productService.getProductByBarcode(barcode));
     }
 
 

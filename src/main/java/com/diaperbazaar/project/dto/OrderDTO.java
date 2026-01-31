@@ -1,8 +1,9 @@
 package com.diaperbazaar.project.dto;
 
-
 import com.diaperbazaar.project.entity.Order;
+import com.diaperbazaar.project.entity.OrderItem;
 import com.diaperbazaar.project.entity.ShippingAddress;
+import com.diaperbazaar.project.entity.User;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -10,140 +11,70 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
-
+import java.util.stream.Collectors;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class OrderDTO {
+
     private Long id;
     private Long userId;
     private BigDecimal totalAmount;
+
     private Order.OrderStatus status;
     private String paymentMethod;
     private Order.PaymentStatus paymentStatus;
+
     private Long addressId;
     private ShippingAddress shippingAddress;
+
     private Integer pointsUsed;
     private BigDecimal pointsDiscount;
     private Integer pointsEarned;
+
     private List<OrderItemDTO> orderItems;
+
+    private BigDecimal totalDiscount;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    // ✅ ENTITY → DTO MAPPER
+    public static OrderDTO fromEntity(Order order) {
 
+        OrderDTO dto = new OrderDTO();
 
-    public Long getId() {
-        return id;
-    }
+        dto.setId(order.getId());
+        dto.setUserId(order.getUserId());
+        dto.setTotalAmount(order.getTotalAmount());
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+        dto.setStatus(order.getStatus());
+        dto.setPaymentMethod(order.getPaymentMethod());
+        dto.setPaymentStatus(order.getPaymentStatus());
 
-    public Long getUserId() {
-        return userId;
-    }
+        dto.setPointsUsed(order.getPointsUsed());
+        dto.setPointsDiscount(order.getPointsDiscount());
+        dto.setPointsEarned(order.getPointsEarned());
 
-    public void setUserId(Long userId) {
-        this.userId = userId;
-    }
+        dto.setCreatedAt(order.getCreatedAt());
+        dto.setUpdatedAt(order.getUpdatedAt());
 
-    public BigDecimal getTotalAmount() {
-        return totalAmount;
-    }
+        if (order.getShippingAddress() != null) {
+            dto.setShippingAddress(order.getShippingAddress());
+            dto.setAddressId(order.getAddressId());
+        }
 
-    public void setTotalAmount(BigDecimal totalAmount) {
-        this.totalAmount = totalAmount;
-    }
+        if (order.getOrderItems() != null) {
+            dto.setOrderItems(
+                    order.getOrderItems()
+                            .stream()
+                            .map(OrderItemDTO::fromEntity)
+                            .collect(Collectors.toList())
+            );
+        }
+        dto.setTotalDiscount(order.getTotalDiscount());
 
-    public Order.OrderStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(Order.OrderStatus status) {
-        this.status = status;
-    }
-
-    public String getPaymentMethod() {
-        return paymentMethod;
-    }
-
-    public void setPaymentMethod(String paymentMethod) {
-        this.paymentMethod = paymentMethod;
-    }
-
-    public Order.PaymentStatus getPaymentStatus() {
-        return paymentStatus;
-    }
-
-    public void setPaymentStatus(Order.PaymentStatus paymentStatus) {
-        this.paymentStatus = paymentStatus;
-    }
-
-    public ShippingAddress getShippingAddress() {
-        return shippingAddress;
-    }
-
-    public void setShippingAddress(ShippingAddress shippingAddress) {
-        this.shippingAddress = shippingAddress;
-    }
-
-    public List<OrderItemDTO> getOrderItems() {
-        return orderItems;
-    }
-
-    public void setOrderItems(List<OrderItemDTO> orderItems) {
-        this.orderItems = orderItems;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
-
-    public Long getAddressId() {
-        return addressId;
-    }
-
-    public void setAddressId(Long addressId) {
-        this.addressId = addressId;
-    }
-
-    public Integer getPointsUsed() {
-        return pointsUsed;
-    }
-
-    public void setPointsUsed(Integer pointsUsed) {
-        this.pointsUsed = pointsUsed;
-    }
-
-    public BigDecimal getPointsDiscount() {
-        return pointsDiscount;
-    }
-
-    public void setPointsDiscount(BigDecimal pointsDiscount) {
-        this.pointsDiscount = pointsDiscount;
-    }
-
-    public Integer getPointsEarned() {
-        return pointsEarned;
-    }
-
-    public void setPointsEarned(Integer pointsEarned) {
-        this.pointsEarned = pointsEarned;
+        return dto;
     }
 }
-
-

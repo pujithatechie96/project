@@ -63,7 +63,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/images/**").permitAll()
-                        .requestMatchers("/api/products/**", "/api/categories/**","/api/brands/**","/api/product-sizes/**").permitAll()
+                        .requestMatchers("/api/products/**", "/api/categories/**","/api/offers/**","/api/brands/**","/api/product-sizes/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
@@ -76,7 +76,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(Arrays.asList("http://localhost:5173", "http://localhost:8081","http://localhost:8080","http://198.38.83.217:8082","http://198.38.83.217"));
+        config.setAllowedOrigins(Arrays.asList("http://localhost:5173", "http://localhost:8081","http://localhost:8080","http://198.38.83.217:8082","http://198.38.83.217","http://www.diaperbazaar.com"));
 
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(Arrays.asList("*"));

@@ -1,9 +1,11 @@
 package com.diaperbazaar.project.dto;
 
 import com.diaperbazaar.project.entity.ProductVariant;
+import jakarta.persistence.Column;
 import lombok.Builder;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Data
@@ -22,12 +24,17 @@ public class ProductVariantDTO {
 
     private Double originalPrice;
     private Double sellPrice;
+    private Double offlineSellPrice;
+    private Double buyPrice;
     private Double discountPercentage;
+    private BigDecimal gstPercentage;
 
     private Integer stock;
     private ProductVariant.WearType wearType;
     private Boolean isDefault;
     private Boolean inStock;
+    private String visibility;
+    private String sku;
 
     public Long getId() {
         return id;

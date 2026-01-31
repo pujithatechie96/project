@@ -3,11 +3,13 @@ package com.diaperbazaar.project.service;
 import com.diaperbazaar.project.dto.*;
 import com.diaperbazaar.project.entity.*;
 import com.diaperbazaar.project.repository.*;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -26,16 +28,23 @@ public class ProductService {
     @Autowired
     private ProductVariantRepository productVariantRepository;
 
+    @Autowired
+    StockService stockService;
+
     /* ================= SEARCH / LIST ================= */
 
     public Page<ProductResponseDTO> searchProducts(
-            String keyword, String category, Long brandId,
-            Double minPrice, Double maxPrice, Pageable pageable
+            String keyword, List<String> category, List<Long> brandId,
+            Double minPrice, Double maxPrice, String productSize, Pageable pageable
     ) {
         Page<Product> products = productRepository.searchProducts(
-                keyword, category, brandId, minPrice, maxPrice, pageable
+                keyword, category, brandId, productSize, minPrice, maxPrice, pageable
         );
-        return products.map(this::mapToResponse);
+        if (productSize != null) {
+            return products.map(product -> mapToResponse(product, productSize));
+        } else {
+            return products.map(this::mapToResponse);
+        }
     }
 
     public Page<ProductResponseDTO> getAllProducts(
@@ -62,6 +71,9 @@ public class ProductService {
         Page<Product> products = productRepository.findByCategorySlugWithFilters(
                 categorySlug, brandId, productSize, productType, wearType, minPrice, maxPrice, pageable
         );
+        if (productSize != null) {
+            return products.map(product -> mapToResponse(product, productSize));
+        }
         return products.map(this::mapToResponse);
     }
 
@@ -90,8 +102,10 @@ public class ProductService {
 
     /* ================= AVAILABLE SIZES ================= */
 
-    public List<String> getAvailableSizes(String categorySlug) {
-        if (categorySlug != null && !categorySlug.isEmpty()) {
+    public List<String> getAvailableSizes(List<String> categorySlug, List<String> brandName) {
+        if ((brandName != null && !brandName.isEmpty()) && categorySlug != null && !categorySlug.isEmpty()) {
+            return productRepository.findSizesByBrandsAndCategories(brandName, categorySlug);
+        } else if (categorySlug != null && !categorySlug.isEmpty()) {
             return productRepository.findDistinctSizesByCategorySlug(categorySlug);
         }
         return productRepository.findDistinctSizes();
@@ -123,9 +137,49 @@ public class ProductService {
                 .category(mapCategory(product.getCategory()))
                 .defaultVariant(defaultVariant)
                 .variants(variantDTOs)
+                .productType(product.getProductType())
+                .rating(product.getRating())
+                .reviewCount(product.getReviewCount())
                 .build();
     }
 
+    private ProductResponseDTO mapToResponse(Product product, String size) {
+
+        if (product.getVariants() == null || product.getVariants().isEmpty()) {
+            throw new RuntimeException("Product has no variants: " + product.getId());
+        }
+
+        /* ---------- MAP VARIANTS ---------- */
+        List<ProductVariantDTO> variantDTOs = product.getVariants().stream()
+                .filter(v -> v.getStock() > 0) // always good
+                .filter(v -> size == null || size.isBlank()
+                        || size.equalsIgnoreCase(v.getSize()))
+                .map(this::mapVariantToDto)
+                .toList();
+
+        /* ---------- DEFAULT VARIANT ---------- */
+        ProductVariantDTO defaultVariant = variantDTOs.stream()
+                .filter(ProductVariantDTO::getIsDefault)
+                .findFirst()
+                .orElse(variantDTOs.get(0));
+
+        if (size != null && !size.isBlank()) {
+            defaultVariant = variantDTOs.stream()
+                    .filter(v -> size.equalsIgnoreCase(v.getSize()))
+                    .findFirst()
+                    .orElse(variantDTOs.get(0));
+        }
+
+        return ProductResponseDTO.builder()
+                .id(product.getId())
+                .name(product.getName())
+                .slug(product.getSlug())
+                .brand(mapBrand(product.getBrand()))
+                .category(mapCategory(product.getCategory()))
+                .defaultVariant(defaultVariant)
+                .variants(variantDTOs)
+                .build();
+    }
 
 
     /* ================= CREATE / UPDATE ================= */
@@ -140,13 +194,16 @@ public class ProductService {
                 .id(variant.getId())
                 .size(variant.getSize())
                 .wearType(variant.getWearType())
-
+                .sku(variant.getSku())
                 .title(variant.getTitle())
                 .description(variant.getDescription())
 
                 .sellPrice(variant.getSellPrice())
+                .offlineSellPrice(variant.getOfflineSellPrice())
+                .buyPrice(variant.getBuyPrice())
                 .originalPrice(variant.getOriginalPrice())
                 .discountPercentage(variant.getDiscountPercentage())
+                .gstPercentage(variant.getGstPercentage())
 
                 .stock(variant.getStock())
                 .inStock(variant.getStock() > 0)
@@ -155,9 +212,12 @@ public class ProductService {
                 .images(images)
                 .image(images.isEmpty() ? null : images.get(0))
                 .features(features)
+                .packCount(variant.getPackCount())
+                .visibility(variant.getVisibility())
 
                 .build();
     }
+
     private List<String> parseCsv(String value) {
         if (value == null || value.isBlank()) return List.of();
 
@@ -175,6 +235,7 @@ public class ProductService {
         return BrandDTO.builder()
                 .id(brand.getId())
                 .name(brand.getName())
+                .slug(brand.getSlug())
                 .build();
     }
 
@@ -184,31 +245,60 @@ public class ProductService {
         return CategoryDTO.builder()
                 .id(category.getId())
                 .name(category.getName())
+                .slug(category.getSlug())
                 .build();
     }
 
 
-
     public ProductResponseDTO createProduct(ProductCreateRequestDTO dto) {
 
-        if (productRepository.existsBySlug(dto.getSlug())) {
-            throw new RuntimeException("Slug already exists");
-        }
+//        if (productRepository.existsBySlug(dto.getSlug())) {
+//            throw new RuntimeException("Slug already exists");
+//        }
 
         Product product = new Product();
         mapDtoToEntity(dto, product);
 
         Product saved = productRepository.save(product);
-
-        /* -------- SAVE VARIANTS -------- */
-        if (dto.getVariants() != null) {
-            for (ProductVariantDTO v : dto.getVariants()) {
-                ProductVariant variant = mapVariantDto(v, saved);
-                productVariantRepository.save(variant);
-            }
+        // If vendor/party is selected and createPurchaseRecord is true, create purchase records
+        if (dto.getPartyId() != null && Boolean.TRUE.equals(dto.getCreatePurchaseRecord())) {
+            createInitialPurchaseRecords(saved, dto.getPartyId());
         }
 
+        // Reload to get updated stock values
+        saved = productRepository.findById(saved.getId()).orElse(saved);
+
         return mapToResponse(saved);
+    }
+
+
+    private void createInitialPurchaseRecords(Product product, Long partyId) {
+        if (product.getVariants() == null || product.getVariants().isEmpty()) {
+            return;
+        }
+
+        for (ProductVariant variant : product.getVariants()) {
+            if (variant.getStock() != null && variant.getStock() > 0) {
+                PurchaseEntryDTO purchaseDTO = new PurchaseEntryDTO();
+                purchaseDTO.setProductId(product.getId());
+                purchaseDTO.setVariantId(variant.getId());
+                purchaseDTO.setPartyId(partyId);
+                purchaseDTO.setQuantity(variant.getStock());
+                purchaseDTO.setUnitPrice(BigDecimal.valueOf(
+                        variant.getBuyPrice() != null ? variant.getBuyPrice() : 0.0
+                ));
+                purchaseDTO.setNotes("Opening stock from product creation");
+
+                try {
+                    // This will create stock transaction, party transaction, and update balances
+                    stockService.addPurchase(purchaseDTO, true);
+                } catch (Exception e) {
+                    // Log error but don't fail product creation
+                    System.err.println("Failed to create purchase record for variant " +
+                            variant.getId() + ": " + e.getMessage());
+                }
+            }
+        }
     }
 
     public ProductResponseDTO updateProduct(Long id, ProductCreateRequestDTO dto) {
@@ -219,17 +309,18 @@ public class ProductService {
         mapDtoToEntity(dto, product);
         Product saved = productRepository.save(product);
 
-        productVariantRepository.deleteByProductId(saved.getId());
-
-        if (dto.getVariants() != null) {
-            for (ProductVariantDTO v : dto.getVariants()) {
-                productVariantRepository.save(mapVariantDto(v, saved));
-            }
-        }
+//        productVariantRepository.deleteByProductId(saved.getId());
+//
+//        if (dto.getVariants() != null) {
+//            for (ProductVariantDTO v : dto.getVariants()) {
+//                productVariantRepository.save(mapVariantDto(v, saved));
+//            }
+//        }
 
         return mapToResponse(saved);
     }
 
+    @Transactional
     public void deleteProduct(Long id) {
         productVariantRepository.deleteByProductId(id);
         productRepository.deleteById(id);
@@ -240,6 +331,7 @@ public class ProductService {
     private void mapDtoToEntity(ProductCreateRequestDTO dto, Product product) {
 
         /* ---------- PRODUCT LEVEL ---------- */
+        if (dto.getId() != null) product.setId(dto.getId());
         product.setName(dto.getName());
         product.setSlug(dto.getSlug());
         product.setProductType(
@@ -259,8 +351,11 @@ public class ProductService {
         product.setCategory(category);
 
         /* ---------- VARIANTS ---------- */
-        product.getVariants().clear();
+        if (product.getVariants() != null) product.getVariants().clear();
 
+        if (product.getVariants() == null) {
+            product.setVariants(new ArrayList<>());
+        }
         dto.getVariants().forEach(variantDTO -> {
             ProductVariant variant = mapVariantDto(variantDTO, product);
             product.getVariants().add(variant);
@@ -269,20 +364,32 @@ public class ProductService {
 
 
     private ProductVariant mapVariantDto(ProductVariantDTO dto, Product product) {
-
-        ProductVariant v = new ProductVariant();
+        ProductVariant v = null;
+        if (dto.getId() != null) {
+            v = productVariantRepository.findById(dto.getId()).get();
+        } else {
+            v = new ProductVariant();
+        }
         v.setProduct(product);
         v.setSize(dto.getSize());
         v.setWearType(dto.getWearType());
+        v.setVisibility(dto.getVisibility());
         v.setSellPrice(dto.getSellPrice());
+        v.setOfflineSellPrice(dto.getOfflineSellPrice());
         v.setOriginalPrice(dto.getOriginalPrice());
+        v.setBuyPrice(dto.getBuyPrice());
         v.setDiscountPercentage(dto.getDiscountPercentage());
+        v.setGstPercentage(dto.getGstPercentage());
         v.setStock(dto.getStock());
+        v.setVisibility(dto.getVisibility());
         v.setTitle(dto.getTitle());
+        v.setPackCount(dto.getPackCount());
         v.setDescription(dto.getDescription());
+        v.setPackCount(dto.getPackCount());
         v.setImages(dto.getImages() != null ? String.join(",", dto.getImages()) : null);
         v.setFeatures(dto.getFeatures() != null ? String.join(",", dto.getFeatures()) : null);
         v.setIsDefault(dto.getIsDefault());
+        v.setSku(dto.getSku());
 
         return v;
     }
@@ -293,5 +400,13 @@ public class ProductService {
         for (ProductCreateRequestDTO dto : products) {
             createProduct(dto);
         }
+    }
+
+    public ProductResponseDTO getProductByBarcode(String barcode) {
+        ProductVariant variant = productVariantRepository.findBySku(barcode).get();
+        if (variant == null) {
+            throw new RuntimeException("Product not found for barcode: " + barcode);
+        }
+        return mapToResponse(variant.getProduct());
     }
 }

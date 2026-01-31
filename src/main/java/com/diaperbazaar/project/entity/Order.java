@@ -69,6 +69,15 @@ public class Order {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+    @Column(name = "subtotal", nullable = false)
+    private BigDecimal subTotal = BigDecimal.ZERO;
+
+    @Column(name = "total_gst", nullable = false)
+    private BigDecimal totalGst = BigDecimal.ZERO;
+
+    @Column(name = "total_discount", nullable = false)
+    private BigDecimal totalDiscount = BigDecimal.ZERO;
+
 
     // Helper method to add order items
     public void addOrderItem(OrderItem item) {

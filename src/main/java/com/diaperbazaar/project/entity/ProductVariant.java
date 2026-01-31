@@ -2,10 +2,12 @@ package com.diaperbazaar.project.entity;
 
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -17,6 +19,7 @@ import java.time.LocalDateTime;
 )
 @Getter
 @Setter
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class ProductVariant {
 
     @Id
@@ -44,7 +47,11 @@ public class ProductVariant {
     private Double originalPrice;
     private Double buyPrice;
     private Double sellPrice;
+    private Double offlineSellPrice;
     private Double discountPercentage;
+
+    @Column(name = "gst_percentage")
+    private BigDecimal gstPercentage;
 
     private Integer stock;
 
@@ -53,9 +60,10 @@ public class ProductVariant {
 
     private Boolean isDefault = false;
 
-    @Column(unique = true)
+    @Column(unique = true,updatable = false)
     private String sku;
 
+    private String visibility;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -232,6 +240,43 @@ public class ProductVariant {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Double getOfflineSellPrice() {
+        return offlineSellPrice;
+    }
+
+    public void setOfflineSellPrice(Double offlineSellPrice) {
+        this.offlineSellPrice = offlineSellPrice;
+    }
+
+    public BigDecimal getGstPercentage() {
+        return gstPercentage;
+    }
+
+    public void setGstPercentage(BigDecimal gstPercentage) {
+        this.gstPercentage = gstPercentage;
+    }
+
+    public String getVisibility() {
+        return visibility;
+    }
+
+    public void setVisibility(String visibility) {
+        this.visibility = visibility;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof ProductVariant)) return false;
+        ProductVariant that = (ProductVariant) o;
+        return id != null && id.equals(that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
     }
 }
 

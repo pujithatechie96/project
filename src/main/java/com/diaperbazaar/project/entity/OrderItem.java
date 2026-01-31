@@ -51,6 +51,32 @@ public class OrderItem {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "subtotal", nullable = false)
+    private BigDecimal subTotal = BigDecimal.ZERO;
+
+    @Column(name = "gst_percentage")
+    private BigDecimal gstPercentage = BigDecimal.ZERO;
+
+    @Column(name = "gst_amount")
+    private BigDecimal gstAmount = BigDecimal.ZERO;
+
+    @Column(name = "discount_amount")
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
+    @Column(name = "total_amount", nullable = false)
+    private BigDecimal totalAmount = BigDecimal.ZERO;
+
+    @Column(name = "billable_qty")
+    private Integer billableQty;
+
+    @Column(name = "delivered_qty")
+    private Integer deliveredQty;
+
+    private String appliedOfferName;
+
+    private Long appliedOfferId;
+
+
     public Long getId() {
         return id;
     }

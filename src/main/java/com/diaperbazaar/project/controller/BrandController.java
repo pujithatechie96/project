@@ -43,26 +43,22 @@ public class BrandController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Brand>> create(@RequestBody Brand b) {
         return ResponseEntity.ok(new ApiResponse<>(true, "brand created", brandService.create(b)));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Brand>> update(@PathVariable Long id, @RequestBody Brand b) {
         return ResponseEntity.ok(new ApiResponse<>(true, "brand updated", brandService.update(id, b)));
         }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
         brandService.delete(id);
         return ResponseEntity.ok(new ApiResponse<>(true, "brand deleted", null));
     }
 
     @PostMapping("/bulk-upload")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<Brand>>> bulkUpload(@RequestParam("file") MultipartFile file) throws Exception {
         List<Brand> saved = brandService.bulkUpload(file);
         return ResponseEntity.ok(new ApiResponse<>(true, "brands uploaded", saved));

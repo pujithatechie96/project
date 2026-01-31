@@ -38,14 +38,12 @@ public class CategoryController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Category> createCategory(@Valid @RequestBody Category category) {
         Category savedCategory = categoryRepository.save(category);
         return ResponseEntity.ok(savedCategory);
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Category> updateCategory(
             @PathVariable Long id,
             @Valid @RequestBody Category category) {
@@ -57,7 +55,6 @@ public class CategoryController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deleteCategory(@PathVariable Long id) {
         categoryRepository.deleteById(id);
         return ResponseEntity.ok("Category deleted successfully");
@@ -85,7 +82,6 @@ public class CategoryController {
 //    }
 
     @PostMapping("/bulk-upload")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<Category>>> bulkUpload(@RequestParam("file") MultipartFile file) throws Exception {
         List<Category> saved = categoryService.bulkUpload(file);
         return ResponseEntity.ok(new ApiResponse<>(true, "categories uploaded", saved));

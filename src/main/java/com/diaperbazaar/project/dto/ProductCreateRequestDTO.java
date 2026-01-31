@@ -8,6 +8,7 @@ import java.util.List;
 public class ProductCreateRequestDTO {
 
     private String name;
+    private Long id;
     private String slug;
     private String productType;
 
@@ -17,4 +18,7 @@ public class ProductCreateRequestDTO {
     private Integer reviewCount;
 
     private List<ProductVariantDTO> variants;
+
+    private Long partyId;
+    private Boolean createPurchaseRecord;
 }
