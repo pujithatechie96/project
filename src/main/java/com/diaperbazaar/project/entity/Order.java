@@ -78,6 +78,17 @@ public class Order {
     @Column(name = "total_discount", nullable = false)
     private BigDecimal totalDiscount = BigDecimal.ZERO;
 
+    private Long customerId;
+
+    private String customerName;
+
+    private Integer customerPointsEarned;
+
+    private Integer customerPointsRedeemed;
+
+    private String customerMobile;
+
+    private BigDecimal customerPointsDiscount;
 
     // Helper method to add order items
     public void addOrderItem(OrderItem item) {

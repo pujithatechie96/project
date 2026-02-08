@@ -60,7 +60,7 @@ public class ProductVariant {
 
     private Boolean isDefault = false;
 
-    @Column(unique = true,updatable = false)
+    @Column(unique = true)
     private String sku;
 
     private String visibility;

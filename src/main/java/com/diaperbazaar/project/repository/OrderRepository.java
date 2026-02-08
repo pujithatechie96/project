@@ -4,6 +4,7 @@ package com.diaperbazaar.project.repository;
 import com.diaperbazaar.project.entity.Order;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -22,5 +23,18 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Order findByIdWithItems(Long orderId);
 
     List<Order> findAllByOrderByCreatedAtDesc();
+
+    /**
+     * Find all orders for a customer by mobile number
+     */
+    @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.orderItems WHERE o.customerMobile = :mobile ORDER BY o.createdAt DESC")
+    List<Order> findByCustomerMobileOrderByCreatedAtDesc(@Param("mobile") String mobile);
+
+    /**
+     * Find all orders for a customer by customer ID
+     */
+    @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.orderItems WHERE o.customerId = :customerId ORDER BY o.createdAt DESC")
+    List<Order> findByCustomerIdOrderByCreatedAtDesc(@Param("customerId") Long customerId);
+
 
 }

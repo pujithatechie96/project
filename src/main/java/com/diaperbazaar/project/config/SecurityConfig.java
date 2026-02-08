@@ -76,8 +76,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(Arrays.asList("http://localhost:5173", "http://localhost:8081","http://localhost:8080","http://198.38.83.217:8082","http://198.38.83.217","http://www.diaperbazaar.com"));
-
+        config.setAllowedOrigins(Arrays.asList("https://qatest.diaperbazaar.com","https://qaadmin.diaperbazaar.com","https://diaperbazaar.com","https://admin.diaperbazaar.com","http://localhost:5173", "http://localhost:8081","http://localhost:8080","http://198.38.83.217:8082","http://198.38.83.217","http://www.diaperbazaar.com","https://www.diaperbazaar.com"));
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(Arrays.asList("*"));
         config.setAllowCredentials(true);

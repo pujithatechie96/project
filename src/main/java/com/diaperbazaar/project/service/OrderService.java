@@ -28,7 +28,8 @@ public class OrderService {
 
     private final StockTransactionRepository stockTransactionRepository;
     private final StockService stockService;
-
+    private final UserRepository userRepository;
+    private final CustomerService customerService;
 
 
     @Transactional
@@ -36,6 +37,11 @@ public class OrderService {
         BigDecimal orderSubtotal = BigDecimal.ZERO;
         BigDecimal orderTotalGst = BigDecimal.ZERO;
         BigDecimal orderTotalDiscount = BigDecimal.ZERO;
+
+        // Check if user is admin for customer loyalty handling
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        boolean isAdmin = "ADMIN".equalsIgnoreCase(user.getRole().name());
 
         // Fetch address and convert to ShippingAddress JSON
         Address address = addressRepository.findById(request.getAddressId())
@@ -65,6 +71,13 @@ public class OrderService {
         order.setAddressId(request.getAddressId());
         order.setShippingAddress(shippingAddress);
         order.setPointsUsed(request.getPointsUsed() != null ? request.getPointsUsed() : 0);
+
+        // 🔥 For admin orders: Set customer details if provided
+        if (isAdmin && request.getCustomerMobile() != null) {
+            order.setCustomerName(request.getCustomerName());
+            order.setCustomerMobile(request.getCustomerMobile());
+            order.setCustomerPointsRedeemed(request.getPointsUsed() != null ? request.getPointsUsed() : 0);
+        }
 
         // Process each order item with offer engine
         for (var itemRequest : request.getItems()) {
@@ -111,6 +124,7 @@ public class OrderService {
             item.setPrice(unitPrice);
             item.setSize(itemRequest.getSize());
             item.setVariant(variant);
+
             // 🔥 Store offer and GST details in order item
             item.setGstPercentage(gstPercentage);
             item.setGstAmount(gstAmount);
@@ -189,25 +203,61 @@ public class OrderService {
         order.setPointsDiscount(pointsDiscount);
         order.setPointsEarned(pointsEarned);
 
+        // 🔥 For admin orders: Set customer points earned
+        if (isAdmin && request.getCustomerMobile() != null) {
+            order.setCustomerPointsEarned(pointsEarned);
+        }
+
         // Save order
         Order savedOrder = orderRepository.save(order);
 
-        // 🔥 After saving order, credit points to wallet
-        walletService.creditPoints(
-                userId,
-                pointsEarned,
-                "Points earned from Order #" + savedOrder.getId(),
-                savedOrder.getId()
-        );
+        // 🔥 Handle points based on user type
+        if (isAdmin && request.getCustomerMobile() != null) {
+            // ADMIN/OFFLINE ORDER: Use CustomerService for customer loyalty
+            Customer customer = customerService.getOrCreateCustomers(
+                    request.getCustomerName(),
+                    request.getCustomerMobile()
+            );
+            order.setCustomerId(customer.getId());
 
-        // 🔥 If points were used, debit them
-        if (request.getPointsUsed() != null && request.getPointsUsed() > 0) {
-            walletService.debitPoints(
-                    userId,
-                    request.getPointsUsed(),
-                    "Points redeemed for Order #" + savedOrder.getId(),
+            // Credit points to customer
+            customerService.creditPoints(
+                    customer.getId(),
+                    pointsEarned,
+                    "Points earned from Offline Order #" + savedOrder.getId(),
                     savedOrder.getId()
             );
+
+            // Debit redeemed points from customer
+            if (request.getPointsUsed() != null && request.getPointsUsed() > 0) {
+                customerService.debitPoints(
+                        customer.getId(),
+                        request.getPointsUsed(),
+                        "Points redeemed for Offline Order #" + savedOrder.getId(),
+                        savedOrder.getId()
+                );
+            }
+
+            log.info("Offline Order #{} - Customer: {} ({}), Points Earned: {}, Points Redeemed: {}",
+                    savedOrder.getId(), customer.getName(), customer.getMobile(),
+                    pointsEarned, request.getPointsUsed());
+        } else {
+            // ONLINE ORDER: Use WalletService for user wallet
+            walletService.creditPoints(
+                    userId,
+                    pointsEarned,
+                    "Points earned from Order #" + savedOrder.getId(),
+                    savedOrder.getId()
+            );
+
+            if (request.getPointsUsed() != null && request.getPointsUsed() > 0) {
+                walletService.debitPoints(
+                        userId,
+                        request.getPointsUsed(),
+                        "Points redeemed for Order #" + savedOrder.getId(),
+                        savedOrder.getId()
+                );
+            }
         }
 
         log.info("Order #{} created successfully. Subtotal: {}, GST: {}, Discount: {}, Final: {}",

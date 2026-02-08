@@ -301,24 +301,40 @@ public class ProductService {
         }
     }
 
+    @Transactional  // ADD THIS if missing
     public ProductResponseDTO updateProduct(Long id, ProductCreateRequestDTO dto) {
-
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Product not found"));
 
-        mapDtoToEntity(dto, product);
-        Product saved = productRepository.save(product);
+        // Clear old variants
+        product.getVariants().clear();
 
-//        productVariantRepository.deleteByProductId(saved.getId());
-//
-//        if (dto.getVariants() != null) {
-//            for (ProductVariantDTO v : dto.getVariants()) {
-//                productVariantRepository.save(mapVariantDto(v, saved));
-//            }
-//        }
+        // Map new variants (your existing logic)
+        dto.getVariants().forEach(variantDTO -> {
+            ProductVariant variant = mapVariantDto(variantDTO, product);
+            product.getVariants().add(variant);
+        });
+
+        // Save product (cascades inserts for new, but not reliable for updates)
+        Product saved = productRepository.saveAndFlush(product);  // Flush forces SQL
+
+        // CRITICAL: Re-fetch and explicitly save EACH variant to trigger SKU UPDATE
+        for (ProductVariant variant : saved.getVariants()) {
+            if (variant.getId() != null) {  // Existing
+                ProductVariant freshVariant = productVariantRepository.findById(variant.getId())
+                        .orElseThrow(() -> new RuntimeException("Variant not found: " + variant.getId()));
+                freshVariant.setSku(dto.getVariants().stream()  // Re-apply from DTO
+                        .filter(v -> v.getId() != null && v.getId().equals(freshVariant.getId()))
+                        .findFirst().map(ProductVariantDTO::getSku).orElse(freshVariant.getSku()));
+                // Set other fields similarly if needed
+                productVariantRepository.saveAndFlush(freshVariant);  // Forces UPDATE SQL
+            }
+        }
 
         return mapToResponse(saved);
     }
+
+
 
     @Transactional
     public void deleteProduct(Long id) {
@@ -407,6 +423,8 @@ public class ProductService {
         if (variant == null) {
             throw new RuntimeException("Product not found for barcode: " + barcode);
         }
-        return mapToResponse(variant.getProduct());
+        ProductResponseDTO responseDTO =  mapToResponse(variant.getProduct());
+        responseDTO.setDefaultVariant(mapVariantToDto(variant));
+        return responseDTO;
     }
 }

@@ -29,6 +29,10 @@ public class CreateOrderRequest {
 
     private BigDecimal pointsDiscount;
 
+    // 🔥 Customer details for offline orders (admin only)
+    private String customerName;
+    private String customerMobile;
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
