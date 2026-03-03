@@ -30,7 +30,7 @@ public class OrderService {
     private final StockService stockService;
     private final UserRepository userRepository;
     private final CustomerService customerService;
-
+    private final WhatsAppService whatsAppService;
 
     @Transactional
     public OrderDTO createOrder(Long userId, CreateOrderRequest request) {
@@ -155,6 +155,7 @@ public class OrderService {
                     partyId,
                     offerResult.getDeliveredQty(), // Use delivered qty for stock reduction
                     unitPrice,
+                    StockTransaction.TransactionType.SALE,
                     "Online Order - " + itemRequest.getProductName() +
                             (offerResult.isOfferApplied() ? " [" + offerResult.getAppliedOfferName() + "]" : "")
             );
@@ -171,7 +172,8 @@ public class OrderService {
                             freeItem.getProductVariantId(),
                             freeItemPartyId,
                             freeItem.getQuantity(),
-                            BigDecimal.ZERO, // Free items have zero price
+                            BigDecimal.ZERO,
+                            StockTransaction.TransactionType.SALE,// Free items have zero price
                             "Free Item - " + freeItem.getVariantTitle() + " [" + offerResult.getAppliedOfferName() + "]"
                     );
                 }
@@ -259,6 +261,26 @@ public class OrderService {
                 );
             }
         }
+
+        String mobile = isAdmin && request.getCustomerMobile() != null
+                ? request.getCustomerMobile()
+                : savedOrder.getShippingAddress().getPhone();
+
+        String name = isAdmin && request.getCustomerName() != null
+                ? request.getCustomerName()
+                : shippingAddress.getFullName();
+
+        String items = whatsAppService.buildItemSummary(savedOrder.getOrderItems());
+
+        whatsAppService.sendInvoiceWithItems(
+                mobile,
+                name,
+                savedOrder.getId().toString(),
+                items,
+                savedOrder.getTotalAmount().toString(),
+                "https://diaperbazaar.com/order/" + savedOrder.getId()
+        );
+
 
         log.info("Order #{} created successfully. Subtotal: {}, GST: {}, Discount: {}, Final: {}",
                 savedOrder.getId(), orderSubtotal, orderTotalGst, orderTotalDiscount, finalAmount);

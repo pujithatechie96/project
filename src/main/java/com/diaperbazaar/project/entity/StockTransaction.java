@@ -55,6 +55,8 @@ public class StockTransaction {
     private String notes;
     
     private LocalDateTime createdAt;
+
+    private String VariantName;
     
     @PrePersist
     protected void onCreate() {
@@ -70,7 +72,8 @@ public class StockTransaction {
         STOCK_IN,      // Manual addition (Stock IN)
         STOCK_OUT,     // Manual removal (Stock OUT)
         DAMAGE,        // Damaged goods (Stock OUT)
-        OPENING        // Opening stock (Stock IN)
+        OPENING ,
+        RETURN // Opening stock (Stock IN)
     }
     
     // Helper method to check if this is a stock-in transaction

@@ -86,6 +86,7 @@ public class StockController {
                 saleDTO.getPartyId(),
                 saleDTO.getQuantity(),
                 saleDTO.getUnitPrice(),
+                StockTransaction.TransactionType.RETURN,
                 saleDTO.getNotes()
         ));
     }

@@ -28,7 +28,6 @@ AND (:brandIds IS NULL OR b.id IN :brandIds)
 AND (:productSize IS NULL OR pv.size = :productSize)
 AND (:minPrice IS NULL OR pv.sellPrice >= :minPrice)
 AND (:maxPrice IS NULL OR pv.sellPrice <= :maxPrice)
-AND pv.stock > 0
 """)
     Page<Product> searchProducts(
             @Param("keyword") String keyword,
@@ -69,7 +68,6 @@ AND pv.stock > 0
         AND (:wearType IS NULL OR pv.wearType = :wearType)
         AND (:minPrice IS NULL OR pv.sellPrice >= :minPrice)
         AND (:maxPrice IS NULL OR pv.sellPrice <= :maxPrice)
-        AND pv.stock > 0
         """)
     Page<Product> findByCategorySlugWithFilters(
             @Param("categorySlug") String categorySlug,

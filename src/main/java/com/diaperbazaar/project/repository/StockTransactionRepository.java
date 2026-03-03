@@ -27,9 +27,9 @@ public interface StockTransactionRepository extends JpaRepository<StockTransacti
     @Query("SELECT st FROM StockTransaction st WHERE st.transactionDate BETWEEN :startDate AND :endDate ORDER BY st.transactionDate DESC")
     List<StockTransaction> findByDateRange(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
     
-    @Query("SELECT st.productId, st.productName, " +
+    @Query("SELECT st.productId, st.productName, st.variantId," +
            "SUM(CASE WHEN st.transactionType IN ('PURCHASE', 'STOCK_IN', 'OPENING') THEN st.quantity ELSE 0 END) as totalIn, " +
-           "SUM(CASE WHEN st.transactionType IN ('SALE', 'STOCK_OUT', 'DAMAGE') THEN st.quantity ELSE 0 END) as totalOut " +
+           "SUM(CASE WHEN st.transactionType IN ('SALE', 'STOCK_OUT', 'DAMAGE','RETURN') THEN st.quantity ELSE 0 END) as totalOut " +
            "FROM StockTransaction st GROUP BY st.productId, st.productName")
     List<Object[]> getStockSummary();
 

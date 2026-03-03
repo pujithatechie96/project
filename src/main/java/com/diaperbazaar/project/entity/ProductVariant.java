@@ -55,8 +55,8 @@ public class ProductVariant {
 
     private Integer stock;
 
-    @Enumerated(EnumType.STRING)
-    private WearType wearType;
+//    @Enumerated(EnumType.STRING)
+    private String wearType;
 
     private Boolean isDefault = false;
 
@@ -202,11 +202,11 @@ public class ProductVariant {
         this.stock = stock;
     }
 
-    public WearType getWearType() {
+    public String getWearType() {
         return wearType;
     }
 
-    public void setWearType(WearType wearType) {
+    public void setWearType(String wearType) {
         this.wearType = wearType;
     }
 

@@ -109,7 +109,7 @@ public class WishlistService {
                 .size(variant.getSize())
                 .wearType(
                         variant.getWearType() != null
-                                ? variant.getWearType().name()
+                                ? variant.getWearType()
                                 : null
                 )
 

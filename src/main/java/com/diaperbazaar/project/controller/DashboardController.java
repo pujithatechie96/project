@@ -1,8 +1,10 @@
 package com.diaperbazaar.project.controller;
 
 
+import com.diaperbazaar.project.dto.LowStockVariantDTO;
 import com.diaperbazaar.project.entity.PurchaseOrder;
 import com.diaperbazaar.project.repository.PurchaseOrderRepository;
+import com.diaperbazaar.project.service.DashboardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,6 +24,7 @@ public class DashboardController {
 
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final EntityManager entityManager;
+    private final DashboardService dashboardService;
 
     @GetMapping("/sales-summary")
     public ResponseEntity<Map<String, BigDecimal>> getSalesSummary(
@@ -33,13 +36,19 @@ public class DashboardController {
             dateFilter = " AND DATE(transaction_date) BETWEEN '" + startDate + "' AND '" + endDate + "'";
         }
 
-        // Total Purchases with date filter
+        // Net Purchases = PURCHASE - RETURN
         BigDecimal totalPurchases = BigDecimal.ZERO;
         try {
             Object result = entityManager.createNativeQuery(
-                    "SELECT COALESCE(SUM(amount), 0) FROM party_transactions WHERE transaction_type = 'PURCHASE'" + dateFilter
+                    "SELECT COALESCE(SUM(CASE " +
+                            "WHEN transaction_type = 'PURCHASE' THEN amount " +
+                            "WHEN transaction_type = 'RETURN' THEN -amount " +
+                            "ELSE 0 END), 0) " +
+                            "FROM party_transactions WHERE 1=1 " + dateFilter
             ).getSingleResult();
+
             totalPurchases = result != null ? new BigDecimal(result.toString()) : BigDecimal.ZERO;
+
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -129,4 +138,59 @@ public class DashboardController {
 
         return ResponseEntity.ok(stats);
     }
+
+    @GetMapping("/low-stock-variants")
+    public List<Object> getLowStockVariants() {
+        return dashboardService.getLowStockVariants();
+    }
+
+
+    @GetMapping("/most-saleable-products")
+    public ResponseEntity<List<Map<String, Object>>> getMostSaleableProducts(
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate
+    ) {
+
+        String dateFilter = "";
+
+        if (startDate != null && endDate != null) {
+            dateFilter = " AND DATE(oi.created_at) BETWEEN '" + startDate + "' AND '" + endDate + "'";
+        }
+
+        String sql =
+                "SELECT " +
+                        "oi.product_id, " +
+                        "pv.title, " +
+                        "oi.variant_id, " +
+                        "oi.size, " +
+                        "SUM(oi.billable_qty) AS total_qty_sold, " +
+                        "SUM(oi.total_amount) AS total_revenue " +
+                        "FROM order_items oi " +
+                        "JOIN product_variants pv " +
+                        "ON pv.id = oi.variant_id AND pv.product_id = oi.product_id " +
+                        "WHERE 1=1 " + dateFilter + " " +
+                        "GROUP BY oi.product_id, pv.title, oi.variant_id, oi.size " +
+                        "ORDER BY total_qty_sold DESC " +
+                        "LIMIT 25";
+
+        Query query = entityManager.createNativeQuery(sql);
+
+        List<Object[]> results = query.getResultList();
+
+        List<Map<String, Object>> response = results.stream().map(row -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("productId", row[0]);
+            map.put("title", row[1]);
+            map.put("variantId", row[2]);
+            map.put("size", row[3]);
+            map.put("totalQtySold", row[4]);
+            map.put("totalRevenue", row[5]);
+            return map;
+        }).toList();
+
+        return ResponseEntity.ok(response);
+    }
+
+
+
 }

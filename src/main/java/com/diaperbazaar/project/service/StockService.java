@@ -60,11 +60,12 @@ public class StockService {
             Map<String, Object> item = new HashMap<>();
             item.put("productId", row[0]);
             item.put("productName", row[1]);
-            item.put("totalIn", row[2] != null ? row[2] : 0);
-            item.put("totalOut", row[3] != null ? row[3] : 0);
+            item.put("variantId",row[2]);
+            item.put("totalIn", row[3] != null ? row[3] : 0);
+            item.put("totalOut", row[4] != null ? row[4] : 0);
             
-            Long totalIn = row[2] != null ? ((Number) row[2]).longValue() : 0L;
-            Long totalOut = row[3] != null ? ((Number) row[3]).longValue() : 0L;
+            Long totalIn = row[3] != null ? ((Number) row[3]).longValue() : 0L;
+            Long totalOut = row[4] != null ? ((Number) row[4]).longValue() : 0L;
             item.put("currentStock", totalIn - totalOut);
             
             summary.add(item);
@@ -140,7 +141,7 @@ public class StockService {
      * Add Sale Entry - Stock OUT to Customer
      */
     public StockTransaction addSale(Long productId, Long variantId, Long partyId,
-                                     int quantity, BigDecimal unitPrice, String notes) {
+                                    int quantity, BigDecimal unitPrice,StockTransaction.TransactionType transactionType, String notes ) {
         // Get current stock
         int currentStock = getCurrentStock(productId, variantId);
         
@@ -159,7 +160,7 @@ public class StockService {
         // Create stock transaction
         StockTransaction stockTxn = new StockTransaction();
         stockTxn.setTransactionDate(LocalDateTime.now());
-        stockTxn.setTransactionType(StockTransaction.TransactionType.SALE);
+        stockTxn.setTransactionType(transactionType);
         stockTxn.setProductId(productId);
         stockTxn.setVariantId(variantId);
         stockTxn.setProductName(productName);
@@ -170,20 +171,24 @@ public class StockService {
         stockTxn.setNotes(notes);
         
         // If party exists (customer ledger)
-        if (partyId != null) {
+        if (partyId != null && StockTransaction.TransactionType.RETURN == transactionType) {
             Party party = partyRepository.findById(partyId).orElse(null);
             if (party != null) {
                 stockTxn.setPartyId(partyId);
                 stockTxn.setPartyName(party.getName());
                 
                 // Sale increases what customer owes (debit)
-                BigDecimal newPartyBalance = party.getCurrentBalance().add(totalAmount);
+                BigDecimal newPartyBalance = party.getCurrentBalance().subtract(totalAmount);
                 
                 // Create party transaction
                 PartyTransaction partyTxn = new PartyTransaction();
                 partyTxn.setTransactionDate(stockTxn.getTransactionDate());
                 partyTxn.setPartyId(partyId);
-                partyTxn.setTransactionType(PartyTransaction.TransactionType.SALE);
+                if(transactionType == StockTransaction.TransactionType.SALE){
+                    partyTxn.setTransactionType(PartyTransaction.TransactionType.SALE);
+                }else if(transactionType == StockTransaction.TransactionType.RETURN){
+                    partyTxn.setTransactionType(PartyTransaction.TransactionType.RETURN);
+                }
                 partyTxn.setAmount(totalAmount);
                 partyTxn.setBalanceAfter(newPartyBalance);
                 partyTxn.setDescription("Sale: " + productName + " x " + quantity);

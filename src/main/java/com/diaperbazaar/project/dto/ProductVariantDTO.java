@@ -30,7 +30,7 @@ public class ProductVariantDTO {
     private BigDecimal gstPercentage;
 
     private Integer stock;
-    private ProductVariant.WearType wearType;
+    private String wearType;
     private Boolean isDefault;
     private Boolean inStock;
     private String visibility;

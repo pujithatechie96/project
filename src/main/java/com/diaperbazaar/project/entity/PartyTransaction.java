@@ -64,7 +64,8 @@ public class PartyTransaction {
         PAYMENT_OUT,   // We paid them (Debit - we owe less)
         SALE,          // They bought from us (Debit - they owe more)
         PAYMENT_IN,    // They paid us (Credit - they owe less)
-        OPENING        // Opening balance
+        OPENING,
+        RETURN// Opening balance
     }
     
     public enum PaymentMode {

@@ -149,25 +149,38 @@ public class ProductService {
             throw new RuntimeException("Product has no variants: " + product.getId());
         }
 
-        /* ---------- MAP VARIANTS ---------- */
+        /* ---------- MAP VARIANTS (FILTERED) ---------- */
         List<ProductVariantDTO> variantDTOs = product.getVariants().stream()
-                .filter(v -> v.getStock() > 0) // always good
+                .filter(v -> v.getStock() > 0)
                 .filter(v -> size == null || size.isBlank()
                         || size.equalsIgnoreCase(v.getSize()))
                 .map(this::mapVariantToDto)
                 .toList();
 
+        // 🔴 If no variants after filtering
+        if (variantDTOs.isEmpty()) {
+            return ProductResponseDTO.builder()
+                    .id(product.getId())
+                    .name(product.getName())
+                    .slug(product.getSlug())
+                    .brand(mapBrand(product.getBrand()))
+                    .category(mapCategory(product.getCategory()))
+                    .variants(Collections.emptyList())
+                    .defaultVariant(null) // or handle as per UI need
+                    .build();
+        }
+
         /* ---------- DEFAULT VARIANT ---------- */
         ProductVariantDTO defaultVariant = variantDTOs.stream()
                 .filter(ProductVariantDTO::getIsDefault)
                 .findFirst()
-                .orElse(variantDTOs.get(0));
+                .orElse(variantDTOs.get(0)); // safe now
 
         if (size != null && !size.isBlank()) {
             defaultVariant = variantDTOs.stream()
                     .filter(v -> size.equalsIgnoreCase(v.getSize()))
                     .findFirst()
-                    .orElse(variantDTOs.get(0));
+                    .orElse(defaultVariant);
         }
 
         return ProductResponseDTO.builder()
@@ -180,8 +193,6 @@ public class ProductService {
                 .variants(variantDTOs)
                 .build();
     }
-
-
     /* ================= CREATE / UPDATE ================= */
 
 
@@ -314,6 +325,16 @@ public class ProductService {
             ProductVariant variant = mapVariantDto(variantDTO, product);
             product.getVariants().add(variant);
         });
+
+        Brand brand = brandRepository.findById(dto.getBrandId())
+                .orElseThrow(() -> new RuntimeException("Brand not found"));
+        product.setBrand(brand);
+
+        /* ---------- CATEGORY ---------- */
+        Category category = categoryRepository.findById(dto.getCategoryId())
+                .orElseThrow(() -> new RuntimeException("Category not found"));
+        product.setCategory(category);
+        product.setName(dto.getName());
 
         // Save product (cascades inserts for new, but not reliable for updates)
         Product saved = productRepository.saveAndFlush(product);  // Flush forces SQL
